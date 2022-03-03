@@ -1,0 +1,11 @@
+geonamescache
+pandas
+numpy
+pytesseract
+opencv-python
+imutils
+matplotlib
+Pillow
+requests
+playwright
+TikTokAPI
