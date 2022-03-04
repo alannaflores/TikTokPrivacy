@@ -8,11 +8,11 @@ Setup instructions:
 0. Install git and clone the repo:
   * Follow the instructions [here](https://github.com/git-guides/install-git) to install git on your local machine.
   * Follow the instructions [here](https://docs.github.com/en/get-started/getting-started-with-git) to set up your github credentials.
-  * Clone the [repo](https://github.com/TikTokPrivacy).
+  * Clone the [repo](https://github.com/alannaflores/TikTokPrivacy).
 
 1. Make sure you have Python 3.8.6 or higher installed.
-  * In a terminal run `python3 --version` or `python3.10 --version` if either of these displays `Python 3.10.2` then you are good to go.
-  * If you don't have the correct version of Python installed, you can download and install it from [here](https://www.python.org/downloads/macos/) (make sure to select version 3.10.2).
+  * In a terminal run `python3 --version` or `python3.8 --version` if either of these displays `Python 3.8.6` then you are good to go.
+  * If you don't have the correct version of Python installed, you can download and install it from [here](https://www.python.org/downloads/macos/) (make sure to select version 3.8.6).
   * After installing Python open a new terminal window and try `python3.8 --version`
   * Make sure to use the above `python3.8` command when you run the following steps.
 2. Create a virtual environment and install the required dependencies. Run the following commands in a terminal window:

@@ -17,7 +17,7 @@ from TikTokApi import TikTokApi
 def convert_video_to_image(VIDEO_PATH, IMAGE_PATH):
   KPS = 1
   EXTENSION = ".png"
-  cap = cv2.VideoCapture(VIDEO_PATH)
+  cap = cv2.VideoCapture(BASIC_PATH + VIDEO_PATH)
   # how frequently a video frame should be converted to image
   hop = round(cap.get(cv2.CAP_PROP_FPS) / KPS)
   curr_frame = 0
@@ -34,7 +34,7 @@ def convert_video_to_image(VIDEO_PATH, IMAGE_PATH):
 
 
 # Note: This does not do a great job yet of extracting text in images - still debugging this
-def convert_image_to_text(IMAGE_PATH):
+def convert_image_to_text(IMAGE_PATH, TEXT_PATH):
   text = " "
   # iterating the images inside the folder
   for imageName in os.listdir(IMAGE_PATH):
@@ -72,6 +72,7 @@ def convert_image_to_text(IMAGE_PATH):
 
   file2 = open(TEXT_PATH, 'r')
   file2.close()
+  return text
 
 """
 Once the text is detected we will need to identify which words correspond with 
@@ -87,8 +88,17 @@ of possibilities
 
 I've started below by creating a list of all possible locations
 """
-def convert_text_to_dataframe():
-  ## TODO: import text file
+def convert_text_to_dataframe(text, TEXT_PATH):
+  # Make sample text for testing
+  sample_text = ["Here's a song to get to know about me", "Sofia Bella", "24 5'2 She/queen", "Las Vegas", "Teacher"]
+
+  for item in sample_text:
+    # Age
+    # Profession
+    # Height
+    # Gender
+
+  # Locations
   gc = geonamescache.GeonamesCache()
   countries = list(pd.DataFrame(gc.get_countries()).T["name"])
   states = list(pd.DataFrame(gc.get_us_states()).T["name"])
@@ -116,11 +126,10 @@ BASIC_PATH = "/Users/alanna/Github/TikTokPrivacy/"
 VIDEO_PATH = 'sample_video.mp4'
 IMAGE_PATH = BASIC_PATH + "images/"
 TEXT_PATH =  BASIC_PATH + "outputFile.txt"
-#convert_video_to_image(VIDEO_PATH, IMAGE_PATH)
-#convert_image_to_text(IMAGE_PATH, TEXT_PATH)
-#convert_text_to_dataframe(TEXT_PATH)
+convert_video_to_image(VIDEO_PATH, IMAGE_PATH)
+text = convert_image_to_text(IMAGE_PATH, TEXT_PATH)
+dict = convert_text_to_dataframe(text, TEXT_PATH)
 
-# assumes you have csvs in the csv folder for each trend you want to look at
 list_of_trends = ["adhd", "aboutmechallenge"]
 api = TikTokApi(custom_verify_fp=os.environ.get("verifyFp", None))
 get_unique_users_by_trend(BASIC_PATH, list_of_trends)
