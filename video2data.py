@@ -8,6 +8,10 @@ import geonamescache
 import pandas as pd
 import numpy as np
 import pytesseract as pt
+from skimage.measure import label
+import scipy.ndimage as nd
+from keras.preprocessing import image
+import matplotlib.pyplot as plt
 from PIL import Image, ImageEnhance, ImageFilter, ImageOps
 import matplotlib.pyplot as plt
 from imutils.perspective import four_point_transform
@@ -19,7 +23,7 @@ second_to_info = {"5": "Name", "6": "Age", "7": ["Height", "Gender"], "13": "Loc
 def convert_video_to_image(VIDEO_PATH, IMAGE_PATH):
   KPS = 1
   EXTENSION = ".png"
-  cap = cv2.VideoCapture(BASIC_PATH + VIDEO_PATH)
+  cap = cv2.VideoCapture(BASIC_PATH + "videos/" + VIDEO_PATH)
   # how frequently a video frame should be converted to image
   hop = round(cap.get(cv2.CAP_PROP_FPS) / KPS)
   curr_frame = 0
@@ -34,24 +38,93 @@ def convert_video_to_image(VIDEO_PATH, IMAGE_PATH):
     curr_frame += 1
   cap.release()
 
+def get_ncc(img):
+  _, ncc = label(img, connectivity=2, return_num=True)
+  return ncc
+
+def get_ccc(img, i):
+  mask_log_i = get_mask_log(img, i)
+  ncc_i = get_ncc(mask_log_i)
+
+  mask_log_i_2 = get_mask_log(img, i - 2)
+  ncc_i_2 = get_ncc(mask_log_i_2)
+
+  return 1 - ncc_i / ncc_i_2
+
+
+def get_stc(img, i):
+  mask_log_1 = get_mask_log(img, 1)
+  ncc_1 = get_ncc(mask_log_1)
+
+  mask_log_i = get_mask_log(img, i)
+  ncc_i = get_ncc(mask_log_i)
+
+  mask_log_i_2 = get_mask_log(img, i - 2)
+  ncc_i_2 = get_ncc(mask_log_i_2)
+
+  return ncc_i / ncc_1 * abs(ncc_i_2 - ncc_i)
+
+
+def get_mask_log(img, i):
+  sigma = 0.3 * ((i - 1) * 0.5 - 1) + 0.8
+  log = nd.gaussian_laplace(img, sigma)
+  log[log < 0] = 0
+  log = np.float32(log)
+  log = cv2.cvtColor(log, cv2.COLOR_BGR2GRAY)
+  log = log.astype('uint8')
+  _, log = cv2.threshold(log, 0, 255, cv2.THRESH_OTSU + cv2.THRESH_BINARY_INV)
+
+  return log
+
+
+def screentone_removal(img):
+  i = 3
+  ccc_max = 0
+  i_log = 1
+
+  ALPHA = 1
+  BETA = 0.8
+
+  stc_i = get_stc(img, i)
+
+  while stc_i > ALPHA:
+    ccc_i = get_ccc(img, i)
+    if ccc_i >= BETA * ccc_max:
+      i_log = i
+      ccc_max = max(ccc_i, ccc_max)
+    i += 2
+
+    stc_i = get_stc(img, i)
+
+  i_log += 4
+  i_base = min(int(i / 2), i_log)
+  mask_rm = cv2.bitwise_or(get_mask_log(img, i_log), get_mask_log(img, i_base))
+
+  return i_log, i_base, mask_rm
+
 
 # Note: This does not do a great job yet of extracting text in images - still debugging this
 def convert_image_to_text(IMAGE_PATH, TEXT_PATH):
   user_dict = {}
   # iterating the images inside the folder
   for imageName in os.listdir(IMAGE_PATH):
-    imageName_raw = imageName.replace(".png", "")
-    inputPath = os.path.join(IMAGE_PATH, imageName)
-    image = cv2.imread(inputPath)
+    if imageName.endswith(".png"):
+      imageName_raw = imageName.replace(".png", "")
+      inputPath = os.path.join(IMAGE_PATH, imageName)
+      img = cv2.imread(inputPath)
+      gray = cv2.GaussianBlur(img, (3, 3), 0)
+      cv2.fastNlMeansDenoising(gray, gray, 20)
+      img1 = gray * 1.0
+      i_log, i_base, mask_rm = screentone_removal(img1)
 
-    # Perform OCR
-    if imageName_raw in second_to_info:
-      info_type = second_to_info[imageName_raw]
-      if isinstance(info_type, list):
-        for item in info_type:
-          user_dict[item] = pt.image_to_string(image, lang='eng', config='--psm 6')
-      else:
-        user_dict[info_type] = pt.image_to_string(image, lang='eng', config='--psm 6')
+      # Perform OCR
+      if imageName_raw in second_to_info:
+        info_type = second_to_info[imageName_raw]
+        if isinstance(info_type, list):
+          for item in info_type:
+            user_dict[item] = pt.image_to_string(mask_rm, lang='eng', config='--psm 6')
+        else:
+          user_dict[info_type] = pt.image_to_string(mask_rm, lang='eng', config='--psm 6')
 
   return user_dict
 
@@ -105,14 +178,36 @@ def get_unique_users_by_trend(BASIC_PATH, list_of_trends):
 
 BASIC_PATH = "/Users/alanna/Github/TikTokPrivacy/"
 VIDEO_PATH = 'sample_video.mp4'
+VIDEO_PATHS  = BASIC_PATH + "videos/"
 IMAGE_PATH = BASIC_PATH + "images/"
 TEXT_PATH =  BASIC_PATH + "outputFile.txt"
 list_of_trends = ["6829082401130416897"]
-#api = TikTokApi(custom_verify_fp=os.environ.get("verifyFp", None))
+
+# Grab video links
+actual = pd.read_csv(BASIC_PATH + "actual_data.csv")
+actual = actual.rename(columns={'Name ': 'Name'})
+api = TikTokApi(custom_verify_fp=os.environ.get("verifyFp", None))
+"""
+for row in actual.iterrows():
+  video = api.video(id=int(row[1].Id))
+  video_data = video.bytes()
+  with open(f'videos/{row[0]}.mp4', "wb") as out_file:
+    out_file.write(video_data)
+"""
 #get_unique_users_by_trend(BASIC_PATH, list_of_trends)
-convert_video_to_image(VIDEO_PATH, IMAGE_PATH)
-user_dict = convert_image_to_text(IMAGE_PATH, TEXT_PATH)
-print(user_dict)
+test = []
+for i, videoName in enumerate(os.listdir(VIDEO_PATHS)):
+  convert_video_to_image(videoName, IMAGE_PATH)
+  user_dict = convert_image_to_text(IMAGE_PATH, TEXT_PATH)
+  df_test = pd.DataFrame.from_dict(user_dict, orient='index').T
+  print(df_test)
+  test.append(df_test)
+
+test = pd.concat(test)
+actual = actual.drop(columns=['Link', 'Id']).reindex(test.columns, axis=1)
+print(actual.head(6).eq(test.values).mean())
+
+
 #dict = clean_dict(user_dict)
 
 
