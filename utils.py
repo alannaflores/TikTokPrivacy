@@ -3,6 +3,7 @@ import pandas as pd
 import numpy as np
 import cv2
 import os
+from video2data import convert_video_to_image
 
 BASIC_PATH = "/Users/alanna/Github/TikTokPrivacy/"
 VIDEO_PATH = 'sample_video.mp4'
@@ -48,7 +49,7 @@ def load_dataset():
     l = os.listdir(VIDEO_PATHS)
     videos = sorted(l, key=lambda i: int(os.path.splitext(os.path.basename(i))[0]))
     for i, videoName in enumerate(videos):
-       #convert_video_to_image(videoName, IMAGE_PATH)
+       convert_video_to_image(videoName, IMAGE_PATH)
         # parse the label and image from the row
         row = actual.iloc[i]
         for key in second_to_info:
