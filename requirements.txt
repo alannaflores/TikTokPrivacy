@@ -12,3 +12,6 @@ TikTokAPI
 scipy
 qwikidata
 CensusData
+matplotlib
+sklearn
+torch

@@ -205,6 +205,7 @@ list_of_trends = ["6829082401130416897"]
 # Grab video links
 actual = pd.read_csv(BASIC_PATH + "actual_data.csv")
 actual = actual.rename(columns={'Name ': 'Name'})
+actual = actual.drop(columns=['Link', 'Id'])
 api = TikTokApi(custom_verify_fp=os.environ.get("verifyFp", None))
 """
 for row in actual.iterrows():
@@ -216,7 +217,7 @@ for row in actual.iterrows():
 # get_unique_users_by_trend(BASIC_PATH, list_of_trends)
 test = []
 
-actual = actual.drop(columns=['Link', 'Id']) #.reindex(test.columns, axis=1)
+ #.reindex(test.columns, axis=1)
 second_to_info = {"5": "Name", "6": "Age", "7": ["Height", "Gender"], "13": "Location", "16": "Profession"}
 
 
@@ -261,17 +262,15 @@ correct = 0
 total = 0
 for i in range(len(images)):
     img = cv2.imread(images[i])
-    gray = cv2.GaussianBlur(img, (3, 3), 0)
-    cv2.fastNlMeansDenoising(gray, gray, 20)
-    img1 = gray * 1.0
-    i_log, i_base, mask_rm = screentone_removal(img1)
-    predicted = pt.image_to_string(mask_rm, lang='eng', config='--psm 6')
+    #gray = cv2.GaussianBlur(img, (3, 3), 0)
+    #cv2.fastNlMeansDenoising(gray, gray, 20)
+    #img1 = gray * 1.0
+    #i_log, i_base, mask_rm = screentone_removal(img1)
+    predicted = pt.image_to_string(img, lang='eng', config='--psm 6')
     actual = labels[i]
     total += 1
     if predicted == actual:
         correct += 1
-    print(correct)
-    print(total)
 print(correct)
 print(total)
 
