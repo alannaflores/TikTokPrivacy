@@ -13,7 +13,7 @@ from models import ResNet
 # from typing_extensions import Required
 import matplotlib
 matplotlib.use("Agg")
-from utils import load_az_dataset, load_zero_nine_dataset, load_dataset
+from utils import load_dataset
 
 # import the necessary packages
 
@@ -50,17 +50,6 @@ data = np.array(data, dtype="float32")
 data = np.expand_dims(data, axis=-1)
 data /= 255.0
 
-# 6. Map the characters in label to numbers
-label = char_to_num(tf.strings.unicode_split(label, input_encoding="UTF-8"))
-
-# account for skew in the labeled data
-classTotals = labels.sum(axis=0)
-classWeight = {}
-
-# loop over all classes and calculate the class weight
-for i in range(0, len(classTotals)):
-    classWeight[i] = classTotals.max() / classTotals[i]
-
 # partition the data into training and testing splits using 80% of
 # the data for training and the remaining 20% for testing
 (trainX, testX, trainY, testY) = train_test_split(data,
@@ -74,7 +63,7 @@ aug = ImageDataGenerator(rotation_range=10, zoom_range=0.05, width_shift_range=0
 print("[INFO] compiling model...")
 
 opt = SGD(lr=INIT_LR, decay=INIT_LR / EPOCHS)
-model = ResNet.build(32, 32, 1, len(le.classes_), (3, 3, 3),
+model = ResNet.build(32, 32, 1, 300, (3, 3, 3),
                      (64, 64, 128, 256), reg=0.0005)
 model.compile(loss="categorical_crossentropy",
               optimizer=opt, metrics=["accuracy"])
@@ -83,8 +72,8 @@ model.compile(loss="categorical_crossentropy",
 print("[INFO] training network...")
 
 H = model.fit(
-    aug.flow(trainX, trainY, batch_size=BS), validation_data=(testX, testY), steps_per_epoch=len(trainX) // BS, epochs=EPOCHS,
-    class_weight=classWeight,
+    aug.flow(trainX, trainY, batch_size=BS), validation_data=(testX, testY), steps_per_epoch=len(trainX) // BS, class_weight={},
+    epochs=EPOCHS,
     verbose=1)
 
 # define the list of label names

@@ -28,7 +28,17 @@ import tensorflow as tf
 from tensorflow import keras
 from tensorflow.keras import layers
 
-second_to_info = {"5": "Name", "6": "Age", "7": ["Height", "Gender"], "13": "Location", "16": "Profession"}
+second_to_info = {"05": "Name", "06": "Age", "07": ["Height", "Gender"], "13": "Location", "16": "Profession"}
+from fpdf import FPDF
+# imagelist is the list with all image filenames
+
+def crop_img(img, scale=1.0):
+    center_x, center_y = img.shape[1] / 2, img.shape[0] / 2
+    width_scaled, height_scaled = img.shape[1] * scale, img.shape[0] * scale
+    left_x, right_x = center_x - width_scaled / 2, center_x + width_scaled / 2
+    top_y, bottom_y = center_y - height_scaled / 2, center_y + height_scaled / 2
+    img_cropped = img[int(top_y):int(bottom_y), int(left_x):int(right_x)]
+    return img_cropped
 
 
 def convert_video_to_image(VIDEO_PATH, IMAGE_PATH):
@@ -44,8 +54,21 @@ def convert_video_to_image(VIDEO_PATH, IMAGE_PATH):
         if not ret or curr_frame > 490:
             break
         if curr_frame % hop == 0:
-            name = IMAGE_PATH + VIDEO_PATH.replace(".mp4", "") + str(int(curr_frame / 30)) + EXTENSION
-            cv2.imwrite(name, frame)
+            if len(str(int(curr_frame / 30)))==1:
+                insert = "0" + str(int(curr_frame / 30))
+            else:
+                insert = str(int(curr_frame / 30))
+            if insert in second_to_info:
+                name = IMAGE_PATH + VIDEO_PATH.replace(".mp4", "") + "image" + insert + EXTENSION
+                cv2.imwrite("this_one2.png", frame)
+                img_cropped = crop_img(frame, 0.8)
+                gray = cv2.cvtColor(img_cropped, cv2.COLOR_BGR2GRAY)
+                image = cv2.threshold(cv2.GaussianBlur(gray, (5, 5), 0), 0, 255, cv2.THRESH_BINARY + cv2.THRESH_OTSU)[1]
+                cv2.imwrite("this_one.png", image)
+
+                img1 = img_cropped * 1.0
+                #i_log, i_base, mask_rm = screentone_removal(img1)
+                #cv2.imwrite(name, mask_rm)
         curr_frame += 1
     cap.release()
 
@@ -143,38 +166,6 @@ def convert_image_to_text(IMAGE_PATH, TEXT_PATH):
 
     return user_dict
 
-
-"""
-Once the text is detected we will need to identify which words correspond with 
-I think we need to make a list of all the possibilities for these things:
--Locations
--Age 
--Profession
--Height 
--Gender - she first then they then he 
-
-and then check if a word we have extracted from the images exists in these lists
-of possibilities 
-
-I've started below by creating a list of all possible locations
-"""
-
-
-def clean_dict(user_dict):
-    # for item in sample_text:
-    # Age
-    # Profession
-    # Height
-    # Gender
-
-    # Locations
-    gc = geonamescache.GeonamesCache()
-    countries = list(pd.DataFrame(gc.get_countries()).T["name"])
-    states = list(pd.DataFrame(gc.get_us_states()).T["name"])
-    cities = list(pd.DataFrame(gc.get_cities()).T["name"])
-    locations_list = countries + states + cities
-
-
 def get_unique_users_by_trend(BASIC_PATH, list_of_trends):
     dfs = []
     for trend in list_of_trends:
@@ -193,6 +184,31 @@ def get_unique_users_by_trend(BASIC_PATH, list_of_trends):
     intersection_ids = list(set.intersection(*map(set, dfs)))
     total_unique_ids = len(intersection_ids)
     print("Unique users who have done all trends: " + str(total_unique_ids))
+
+def load_dataset():
+    # initialize the list of data and labels
+    data = []
+    labels = []
+    l = os.listdir(VIDEO_PATHS)
+    videos = sorted(l, key=lambda i: int(os.path.splitext(os.path.basename(i))[0]))
+    for i, videoName in enumerate(videos):
+        convert_video_to_image(videoName, IMAGE_PATH)
+        # parse the label and image from the row
+        row = actual.iloc[i]
+        for key in second_to_info:
+            image = "images/" + videoName.replace(".mp4", "") + "image" + key + ".png"
+            if isinstance(second_to_info[key], list):
+                for item in second_to_info[key]:
+                    label = row[item]
+                    data.append(image)
+                    labels.append(label)
+            else:
+
+                label = row[second_to_info[key]]
+                data.append(image)
+                labels.append(label)
+
+    return (data, labels)
 
 
 BASIC_PATH = "/Users/alanna/Github/TikTokPrivacy/"
@@ -217,43 +233,6 @@ for row in actual.iterrows():
 # get_unique_users_by_trend(BASIC_PATH, list_of_trends)
 test = []
 
- #.reindex(test.columns, axis=1)
-second_to_info = {"5": "Name", "6": "Age", "7": ["Height", "Gender"], "13": "Location", "16": "Profession"}
-
-
-def load_dataset():
-    # initialize the list of data and labels
-    data = []
-    labels = []
-    l = os.listdir(VIDEO_PATHS)
-    videos = sorted(l, key=lambda i: int(os.path.splitext(os.path.basename(i))[0]))
-    for i, videoName in enumerate(videos):
-       #convert_video_to_image(videoName, IMAGE_PATH)
-        # parse the label and image from the row
-        row = actual.iloc[i]
-        for key in second_to_info:
-            image = "images/" + videoName.replace(".mp4", "") + key + ".png"
-            if isinstance(second_to_info[key], list):
-                for item in second_to_info[key]:
-                    label = row[item]
-                    data.append(image)
-                    labels.append(label)
-            else:
-
-                label = row[second_to_info[key]]
-                data.append(image)
-                labels.append(label)
-
-    # return a 2-tuple of the A-Z data and labels
-    return (data, labels)
-
-
-# initialize the number of epochs to train for, initial learning rate,
-# and batch size
-EPOCHS = 50
-INIT_LR = 1e-1
-BS = 128
-# load the A-Z and MNIST datasets, respectively
 print("[INFO] loading datasets...")
 images, labels = load_dataset()
 characters = set(char for label in labels for char in str(label))
@@ -262,10 +241,6 @@ correct = 0
 total = 0
 for i in range(len(images)):
     img = cv2.imread(images[i])
-    #gray = cv2.GaussianBlur(img, (3, 3), 0)
-    #cv2.fastNlMeansDenoising(gray, gray, 20)
-    #img1 = gray * 1.0
-    #i_log, i_base, mask_rm = screentone_removal(img1)
     predicted = pt.image_to_string(img, lang='eng', config='--psm 6')
     actual = labels[i]
     total += 1
@@ -355,19 +330,6 @@ validation_dataset = (
     .prefetch(buffer_size=tf.data.AUTOTUNE)
 )
 
-"""
-_, ax = plt.subplots(4, 4, figsize=(10, 5))
-for batch in train_dataset.take(1):
-    images = batch["image"]
-    labels = batch["label"]
-    for i in range(batch_size):
-        img = (images[i] * 255).numpy().astype("uint8")
-        label = tf.strings.reduce_join(num_to_char(labels[i])).numpy().decode("utf-8")
-        ax[i // 4, i % 4].imshow(img[:, :, 0].T, cmap="gray")
-        ax[i // 4, i % 4].set_title(label)
-        ax[i // 4, i % 4].axis("off")
-plt.show()
-"""
 
 class CTCLayer(layers.Layer):
     def __init__(self, name=None):
@@ -458,15 +420,12 @@ def build_model():
 model = build_model()
 model.summary()
 
-print("im here")
 epochs = 2
 early_stopping_patience = 10
 # Add early stopping
 early_stopping = keras.callbacks.EarlyStopping(
     monitor="val_loss", patience=early_stopping_patience, restore_best_weights=True
 )
-
-print("now im here")
 
 # Train the model
 history = model.fit(
@@ -481,7 +440,6 @@ prediction_model = keras.models.Model(
     model.get_layer(name="image").input, model.get_layer(name="dense2").output
 )
 
-print("im here")
 prediction_model.summary()
 
 # A utility function to decode the output of the network
@@ -523,7 +481,6 @@ for batch in validation_dataset.take(1):
 plt.show()
 
 
-
 # user_dict = convert_image_to_text(IMAGE_PATH, TEXT_PATH)
 # df_test = pd.DataFrame.from_dict(user_dict, orient='index').T
 # print(df_test)
@@ -531,9 +488,5 @@ plt.show()
 
 # test = pd.concat(test)
 # test.to_csv("This_one.csv")
-
-
 # print(actual.head(6).eq(test.values).mean())
-
-
 # dict = clean_dict(user_dict)
